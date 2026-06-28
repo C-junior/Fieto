@@ -5,12 +5,29 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 const EMPRESA_ID = 'demo-padaria-001';
 
 /* ── Demo Mode: respostas mockadas para o pitch ──────────── */
-const DEMO_RESPONSES = [
-  {
-    triggers: ['como está o sistema', 'como esta o sistema', 'status do sistema', 'como estão as coisas', 'como estao as coisas', 'como está tudo', 'como esta tudo'],
-    response: `📊 Sistema operacional estável. Três pontos de atenção:\n\n⚠️ O sensor de umidade do depósito registrou 78% — acima do ideal de 65%. Recomendo que o gestor averigue a ventilação do local para preservar a qualidade dos insumos secos.\n\n⏰ O Fermento Biológico Fresco (lote NF-001.432.877) vence em 32 dias. Sugiro priorizar o uso nas próximas fornadas para evitar desperdício.\n\n✅ Demais insumos e equipamentos dentro da normalidade. Boa produção hoje, chefe! 👋`,
-  },
+const DEMO_TRIGGERS = [
+  'como esta o sistema',
+  'como está o sistema',
+  'status do sistema',
+  'como estao as coisas',
+  'como estão as coisas',
+  'como esta tudo',
+  'como está tudo',
+  'diana como esta',
+  'diana, como esta',
+  'diana como está',
+  'diana, como está',
 ];
+
+const DEMO_RESPONSE_TEXT = [
+  '📊 Sistema operacional estável. Três pontos de atenção:',
+  '',
+  '⚠️ O sensor de umidade do depósito registrou 78% — acima do ideal de 65%. Recomendo que o gestor averigue a ventilação do local para preservar a qualidade dos insumos secos.',
+  '',
+  '⏰ O Fermento Biológico Fresco (lote NF-001.432.877) vence em 32 dias. Sugiro priorizar o uso nas próximas fornadas para evitar desperdício.',
+  '',
+  '✅ Demais insumos e equipamentos dentro da normalidade. Boa produção hoje, chefe! 👋',
+].join(String.fromCharCode(10));
 
 const WELCOME_MESSAGE = {
   id: 'welcome',
@@ -112,15 +129,13 @@ export function useDiana() {
 
     // ── Demo mode: check for scripted responses ──
     const lowerMsg = userMessage.trim().toLowerCase();
-    const demoMatch = DEMO_RESPONSES.find(d =>
-      d.triggers.some(t => lowerMsg.includes(t))
-    );
+    const isDemoMatch = DEMO_TRIGGERS.some(t => lowerMsg.includes(t));
 
-    if (demoMatch) {
+    if (isDemoMatch) {
       const dianaMsg = {
         id: `diana-${Date.now()}`,
         papel: 'assistant',
-        conteudo: demoMatch.response,
+        conteudo: DEMO_RESPONSE_TEXT,
         criado_em: new Date().toISOString(),
       };
       setMessages(prev => [...prev, dianaMsg]);
