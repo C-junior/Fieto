@@ -20,13 +20,13 @@ const DEMO_TRIGGERS = [
 ];
 
 const DEMO_RESPONSE_TEXT = [
-  '📊 Sistema operacional estável. Três pontos de atenção:',
+  '📊 Sistema estável. Dois pontos de atenção:',
   '',
-  '⚠️ O sensor de umidade do depósito registrou 78% — acima do ideal de 65%. Recomendo que o gestor averigue a ventilação do local para preservar a qualidade dos insumos secos.',
+  '⚠️ Umidade do depósito em 78%, acima do ideal. Recomendo averiguar a ventilação.',
   '',
-  '⏰ O Fermento Biológico Fresco (lote NF-001.432.877) vence em 32 dias. Sugiro priorizar o uso nas próximas fornadas para evitar desperdício.',
+  '⏰ Fermento Biológico vence em 62 dias. Sugiro priorizar nas próximas fornadas.',
   '',
-  '✅ Demais insumos e equipamentos dentro da normalidade. Boa produção hoje, chefe! 👋',
+  '✅ Demais insumos dentro da normalidade. Boa produção hoje, chefe! 👋',
 ].join(String.fromCharCode(10));
 
 const WELCOME_MESSAGE = {
