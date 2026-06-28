@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Send, Bot, Trash2, Sparkles, Volume2, VolumeX, Loader } from 'lucide-react';
+import { Send, Bot, Trash2, Sparkles, Volume2, VolumeX, Loader, Mic, MicOff } from 'lucide-react';
 
 /**
  * Parse Diana messages to apply rich styling.
@@ -11,7 +11,15 @@ import { Send, Bot, Trash2, Sparkles, Volume2, VolumeX, Loader } from 'lucide-re
 function renderRichContent(text) {
   if (!text) return null;
 
-  const lines = text.split('\n');
+  // Limpa tags think client-side para evitar vazamento visual (tanto tags completas quanto abertas em streaming)
+  const cleanedText = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*/gi, '')
+    .trim();
+
+  if (!cleanedText) return null;
+
+  const lines = cleanedText.split('\n');
 
   return lines.map((line, i) => {
     let sectionClass = 'diana-section';
@@ -69,11 +77,14 @@ function formatTimestamp(isoString) {
   }
 }
 
-/**
- * Limpa texto para TTS — remove emojis e formatação
- */
 function cleanTextForSpeech(text) {
-  return text
+  if (!text) return '';
+  const noThinkText = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*/gi, '')
+    .trim();
+
+  return noThinkText
     // Remove all emoji characters (broad Unicode ranges)
     .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
     // Remove decorative characters
@@ -284,8 +295,65 @@ function TTSButton({ text, autoPlay = false }) {
 export default function DianaChat({ messages, streamingMessage, isStreaming, loading, sendMessage, clearChat, suggestions }) {
   const [input, setInput] = useState('');
   const [autoTTS, setAutoTTS] = useState(true);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
   const lastMessageIdRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  // Inicializa o reconhecimento de voz do navegador (Web Speech API)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = false; // Para de escutar automaticamente ao pausar a fala
+        rec.interimResults = false;
+        rec.lang = 'pt-BR';
+
+        rec.onstart = () => {
+          setIsListening(true);
+        };
+
+        rec.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          if (transcript) {
+            setInput(prev => {
+              const base = prev.trim();
+              return base ? `${base} ${transcript}` : transcript;
+            });
+          }
+        };
+
+        rec.onerror = (event) => {
+          console.error('Erro no reconhecimento de voz:', event.error);
+          setIsListening(false);
+        };
+
+        rec.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = rec;
+      }
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert('Reconhecimento de voz não é suportado pelo seu navegador (recomendado usar Chrome ou Edge).');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error('Erro ao iniciar reconhecimento:', err);
+      }
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -456,7 +524,18 @@ export default function DianaChat({ messages, streamingMessage, isStreaming, loa
       )}
 
       {/* Input Form */}
-      <form onSubmit={handleSubmit} className="chat-input-area">
+      <form onSubmit={handleSubmit} className="chat-input-area" style={{ display: 'flex', alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={toggleListening}
+          className={`chat-mic-btn ${isListening ? 'chat-mic-btn-active' : ''}`}
+          title={isListening ? 'Ouvindo... Clique para parar' : 'Falar (enviar por voz)'}
+          style={{
+            marginRight: '8px',
+          }}
+        >
+          {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+        </button>
         <input
           type="text"
           className="chat-input"
@@ -464,6 +543,7 @@ export default function DianaChat({ messages, streamingMessage, isStreaming, loa
           onChange={(e) => setInput(e.target.value)}
           placeholder={placeholder}
           disabled={loading || isStreaming}
+          style={{ flex: 1 }}
         />
         <button type="submit" className="chat-send-btn" disabled={!input.trim() || loading || isStreaming}>
           <Send size={16} />
