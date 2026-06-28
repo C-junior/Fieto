@@ -1,127 +1,204 @@
 import { NextResponse } from 'next/server';
 
-/**
- * POST /api/diana/tts
- * Converte texto da Diana em áudio usando ElevenLabs TTS.
- * Fallback: retorna flag para usar Web Speech API no cliente.
- *
- * Body: { text: string }
- * Returns: audio/mpeg stream OR { fallback: true }
- */
+const OPENAI_TTS_MODELS = [
+  process.env.OPENAI_TTS_MODEL,
+  'gpt-4o-mini-tts',
+  'tts-1',
+].filter(Boolean);
+const OPENAI_TTS_VOICE = process.env.OPENAI_TTS_VOICE || 'nova';
 
-// Vozes para tentar em ordem de preferência:
-// 1. Roberta — voz feminina brasileira (community, requer paid)
-// 2. Rachel — voz feminina pré-feita (default)
-// 3. Bella — voz feminina suave
-// 4. Sarah — voz feminina natural
-const VOICE_CANDIDATES = [
-  'RGymW84CSmfVugnA5tvA', // Roberta (PT-BR)
-  '21m00Tcm4TlvDq8ikWAM', // Rachel
-  'EXAVITQu4vr4xnSDxMaL', // Bella
-  'MF3mGyEYCl7XYWbV9V6O', // Elli
-];
+function cleanTextForSpeech(text) {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*/gi, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '')
+    .replace(/[═*#_`]/g, '')
+    .replace(/ALERTA:\s*/gi, 'Atencao: ')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, '. ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
-const MODEL_ID = 'eleven_multilingual_v2';
+function writeWavHeader(samplesLength, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
+  const header = Buffer.alloc(44);
+  // "RIFF"
+  header.write('RIFF', 0);
+  // file size - 8
+  header.writeUInt32LE(36 + samplesLength, 4);
+  // "WAVE"
+  header.write('WAVE', 8);
+  // "fmt "
+  header.write('fmt ', 12);
+  // chunk size (16)
+  header.writeUInt32LE(16, 16);
+  // audio format (1 = PCM)
+  header.writeUInt16LE(1, 20);
+  // num channels
+  header.writeUInt16LE(numChannels, 22);
+  // sample rate
+  header.writeUInt32LE(sampleRate, 24);
+  // byte rate = sampleRate * numChannels * bitsPerSample / 8
+  header.writeUInt32LE(sampleRate * numChannels * (bitsPerSample / 8), 28);
+  // block align = numChannels * bitsPerSample / 8
+  header.writeUInt16LE(numChannels * (bitsPerSample / 8), 32);
+  // bits per sample
+  header.writeUInt16LE(bitsPerSample, 34);
+  // "data"
+  header.write('data', 36);
+  // chunk size
+  header.writeUInt32LE(samplesLength, 40);
+  return header;
+}
 
 export async function POST(request) {
   try {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
-
+    const apiKey = process.env.OPENAI_API_KEY;
     const body = await request.json();
     const text = body.text;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Texto é obrigatório.' },
+        { error: 'Texto e obrigatorio.' },
         { status: 400 }
       );
     }
 
-    // Limpar texto — remover emojis e caracteres especiais que prejudicam a fala
-    const cleanText = text
-      .replace(/[⚠️📊💡✅🔥🍞☀️⏰📦📋💰📈🟢🟡🔴═]/g, '')
-      .replace(/\*\*/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    const cleanText = cleanTextForSpeech(text);
 
-    if (cleanText.length === 0) {
+    if (!cleanText) {
       return NextResponse.json(
-        { error: 'Texto está vazio após limpeza.' },
+        { error: 'Texto esta vazio apos limpeza.' },
         { status: 400 }
       );
     }
 
-    // Se não houver API key, sinalizar fallback para Web Speech API
     if (!apiKey) {
       return NextResponse.json({ fallback: true, cleanText });
     }
 
-    // Limitar tamanho do texto para evitar custos excessivos (máx ~1000 chars)
-    const truncatedText = cleanText.length > 1000
-      ? cleanText.slice(0, 997) + '...'
+    const input = cleanText.length > 1200
+      ? `${cleanText.slice(0, 1197)}...`
       : cleanText;
 
-    // Tentar cada voz candidata até uma funcionar
-    for (const voiceId of VOICE_CANDIDATES) {
-      try {
-        const elevenlabsRes = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'xi-api-key': apiKey,
-            },
-            body: JSON.stringify({
-              text: truncatedText,
-              model_id: MODEL_ID,
-              voice_settings: {
-                stability: 0.6,
-                similarity_boost: 0.78,
-                style: 0.35,
-                use_speaker_boost: true,
-              },
-            }),
-          }
-        );
+    let lastError = '';
+    const isOpenRouterKey = apiKey.startsWith('sk-or-');
 
-        if (elevenlabsRes.ok) {
-          // Sucesso! Stream audio de volta
-          const audioBuffer = await elevenlabsRes.arrayBuffer();
+    // 1. Rota do OpenRouter se a chave for sk-or-*
+    if (isOpenRouterKey) {
+      try {
+        console.log('Using OpenRouter TTS with Gemini 3.1 Flash...');
+        // Tenta Gemini 3.1 Flash (ótima voz em português, requer PCM)
+        const geminiRes = await fetch('https://openrouter.ai/api/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-3.1-flash-tts-preview',
+            input,
+            voice: 'aoede',
+            response_format: 'pcm',
+          }),
+        });
+
+        if (geminiRes.ok) {
+          const pcmBuffer = Buffer.from(await geminiRes.arrayBuffer());
+          const wavHeader = writeWavHeader(pcmBuffer.length, 24000, 1, 16);
+          const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
+
+          return new Response(wavBuffer, {
+            status: 200,
+            headers: {
+              'Content-Type': 'audio/wav',
+              'Content-Length': wavBuffer.byteLength.toString(),
+              'Cache-Control': 'private, max-age=1800',
+            },
+          });
+        }
+
+        const geminiErr = await geminiRes.text();
+        console.warn('OpenRouter Gemini TTS failed:', geminiErr, 'Trying Kokoro...');
+
+        // Tenta Kokoro 82M como fallback (retorna MP3 nativo)
+        const kokoroRes = await fetch('https://openrouter.ai/api/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'hexgrad/kokoro-82m',
+            input,
+            voice: 'af_bella',
+            response_format: 'mp3',
+          }),
+        });
+
+        if (kokoroRes.ok) {
+          const audioBuffer = await kokoroRes.arrayBuffer();
           return new Response(audioBuffer, {
             status: 200,
             headers: {
               'Content-Type': 'audio/mpeg',
               'Content-Length': audioBuffer.byteLength.toString(),
-              'Cache-Control': 'public, max-age=3600',
+              'Cache-Control': 'private, max-age=1800',
             },
           });
         }
 
-        // Se for 402 (payment required) ou 401 (unauthorized), tentar próxima voz
-        const status = elevenlabsRes.status;
-        if (status === 402 || status === 401 || status === 404) {
-          console.warn(`ElevenLabs voice ${voiceId} returned ${status}, trying next...`);
-          continue;
+        lastError = `OpenRouter TTS failed. Gemini: ${geminiRes.status}, Kokoro: ${kokoroRes.status}`;
+      } catch (err) {
+        lastError = `OpenRouter TTS fetch exception: ${err.message}`;
+        console.error('OpenRouter TTS error:', err);
+      }
+    } else {
+      // 2. Rota oficial da OpenAI se for chave padrão
+      for (const model of OPENAI_TTS_MODELS) {
+        const ttsBody = {
+          model,
+          voice: OPENAI_TTS_VOICE,
+          input,
+          response_format: 'mp3',
+        };
+
+        if (model.includes('gpt-4o')) {
+          ttsBody.instructions = 'Fale em portugues brasileiro, com tom profissional, claro e acolhedor.';
         }
 
-        // Outros erros (429 rate limit, etc) — não tentar mais
-        const errText = await elevenlabsRes.text();
-        console.error('ElevenLabs API error:', status, errText);
-        break;
-      } catch (fetchErr) {
-        console.error(`ElevenLabs fetch error for voice ${voiceId}:`, fetchErr);
-        continue;
+        const openAIRes = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(ttsBody),
+        });
+
+        if (openAIRes.ok) {
+          const audioBuffer = await openAIRes.arrayBuffer();
+
+          return new Response(audioBuffer, {
+            status: 200,
+            headers: {
+              'Content-Type': 'audio/mpeg',
+              'Content-Length': audioBuffer.byteLength.toString(),
+              'Cache-Control': 'private, max-age=1800',
+            },
+          });
+        }
+
+        lastError = `${openAIRes.status}: ${await openAIRes.text()}`;
+        console.error(`OpenAI TTS error with ${model}:`, lastError);
       }
     }
 
-    // Se nenhuma voz ElevenLabs funcionou, retornar fallback
-    console.warn('ElevenLabs não disponível, usando fallback Web Speech API');
-    return NextResponse.json({ fallback: true, cleanText: truncatedText });
+    return NextResponse.json({ fallback: true, cleanText: input, reason: lastError });
   } catch (error) {
     console.error('Erro no TTS:', error);
     return NextResponse.json(
-      { error: 'Erro interno ao gerar áudio.' },
+      { error: 'Erro interno ao gerar audio.' },
       { status: 500 }
     );
   }

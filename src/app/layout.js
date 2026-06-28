@@ -1,6 +1,8 @@
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
+import DianaOverlay from '@/components/DianaOverlay';
+import { ThemeProvider } from '@/hooks/useTheme';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,12 +26,15 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable}`} data-theme="dark">
       <body>
-        <div className="app-layout">
-          <Sidebar />
-          <main className="main-content">{children}</main>
-        </div>
+        <ThemeProvider>
+          <div className="app-layout">
+            <Sidebar />
+            <main className="main-content">{children}</main>
+            <DianaOverlay />
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

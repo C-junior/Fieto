@@ -189,7 +189,7 @@ export async function POST(request) {
 
     if (error.message?.includes('API key') || error.message?.includes('API_KEY')) {
       return NextResponse.json(
-        { error: 'Erro de configuração da IA. Verifique a chave da API Gemini.' },
+        { error: 'Erro de configuracao da IA. Verifique a chave da API OpenAI.' },
         { status: 500 }
       );
     }

@@ -39,6 +39,8 @@ function getTimeSuggestions() {
 }
 
 function loadMessagesFromStorage() {
+  if (typeof window === 'undefined') return [WELCOME_MESSAGE];
+
   try {
     const stored = localStorage.getItem('diana-chat-messages');
     if (stored) {
@@ -52,6 +54,8 @@ function loadMessagesFromStorage() {
 }
 
 function saveMessagesToStorage(messages) {
+  if (typeof window === 'undefined') return;
+
   try {
     localStorage.setItem('diana-chat-messages', JSON.stringify(messages));
   } catch {
@@ -236,12 +240,21 @@ export function useDiana() {
     localStorage.removeItem('diana-chat-messages');
   }, []);
 
-  const onAcceptAlert = useCallback((alert) => {
-    // handled in page.js via onAlertAction callback
-  }, []);
+  const onAcceptAlert = useCallback(async (alert) => {
+    const prompts = {
+      VALIDADE: `Diana, eu aceito a sugestao sobre o item ${alert.item_name}. O que devo fazer agora?`,
+      'SUPERPRODUCAO': `Diana, reduza a producao sugerida de ${alert.item_name} como recomendado.`,
+      'SUPERPRODUÇÃO': `Diana, reduza a producao sugerida de ${alert.item_name} como recomendado.`,
+      REAPROVEITAMENTO: `Diana, aceito a sugestao. Me de a receita detalhada para usar o item ${alert.item_name}.`,
+    };
+
+    const promptMessage = prompts[alert.type] || `Diana, aceito o alerta sobre ${alert.item_name}.`;
+    setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, dismissed: true } : a));
+    await sendMessage(promptMessage);
+  }, [sendMessage]);
 
   const onDismissAlert = useCallback((alert) => {
-    // handled in page.js via onAlertAction callback
+    setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, dismissed: true } : a));
   }, []);
 
   return {

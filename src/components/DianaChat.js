@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Send, Bot, Trash2, Sparkles, Volume2, VolumeX, Loader, Mic, MicOff } from 'lucide-react';
+import { Send, Bot, Trash2, Sparkles, Volume2, VolumeX, Loader, Mic, MicOff, X } from 'lucide-react';
 
 /**
  * Parse Diana messages to apply rich styling.
@@ -137,18 +137,101 @@ function speakWithBrowserTTS(text, onEnd) {
 }
 
 /**
- * TTS Speaker Button component — plays Diana's response as audio.
- * Tries ElevenLabs first, falls back to Web Speech API.
+ * Componente visual do botão TTS simplificado.
  */
-function TTSButton({ text, autoPlay = false }) {
-  const [ttsState, setTtsState] = useState('idle'); // idle | loading | playing
-  const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
+function TTSButton({ isPlaying, isLoading, onClick }) {
+  const Icon = isLoading ? Loader : isPlaying ? VolumeX : Volume2;
+  return (
+    <button
+      type="button"
+      className={`tts-btn ${isPlaying ? 'tts-btn-playing' : ''} ${isLoading ? 'tts-btn-loading' : ''}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={isPlaying ? 'Parar voz' : isLoading ? 'Carregando voz...' : 'Ouvir Diana'}
+      disabled={isLoading}
+    >
+      <Icon size={14} className={isLoading ? 'tts-spin' : ''} />
+    </button>
+  );
+}
+
+export default function DianaChat({
+  messages,
+  streamingMessage,
+  isStreaming,
+  loading,
+  sendMessage,
+  clearChat,
+  suggestions,
+  onVoiceStateChange,
+}) {
+  const [input, setInput] = useState('');
+  const [autoTTS, setAutoTTS] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [voiceState, setVoiceState] = useState('idle'); // idle | loading | playing
+  const [voiceText, setVoiceText] = useState('');
+  const [transcriptText, setTranscriptText] = useState('');
+
+  const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
   const audioRef = useRef(null);
   const blobUrlRef = useRef(null);
   const utteranceRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const lastPlayedMessageIdRef = useRef(null);
 
-  // Load voices for Web Speech API (some browsers load them asynchronously)
+  // Inicializa o reconhecimento de voz do navegador (Web Speech API)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = false;
+        rec.interimResults = false;
+        rec.lang = 'pt-BR';
+
+        rec.onstart = () => {
+          setIsListening(true);
+          setTranscriptText('Diana está ouvindo você...');
+          // Stop any Diana speaking when user starts talking
+          stopTTS();
+        };
+
+        rec.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          if (transcript) {
+            setTranscriptText(transcript);
+            setInput(prev => {
+              const base = prev.trim();
+              return base ? `${base} ${transcript}` : transcript;
+            });
+            // Auto submit speech input after short delay
+            setTimeout(() => {
+              sendMessage(transcript);
+              setIsListening(false);
+            }, 600);
+          }
+        };
+
+        rec.onerror = (event) => {
+          console.error('Erro no reconhecimento de voz:', event.error);
+          setIsListening(false);
+          setTranscriptText('Não consegui ouvir. Tente novamente.');
+        };
+
+        rec.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = rec;
+      }
+    }
+  }, [sendMessage]);
+
+  // Load voices for Web Speech API
   useEffect(() => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
@@ -158,15 +241,16 @@ function TTSButton({ text, autoPlay = false }) {
     }
   }, []);
 
+  // Sync general voice status with parent layout
+  useEffect(() => {
+    onVoiceStateChange?.(voiceState);
+  }, [voiceState, onVoiceStateChange]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-      }
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -177,43 +261,27 @@ function TTSButton({ text, autoPlay = false }) {
     };
   }, []);
 
-  const handlePlay = useCallback(async () => {
-    // If already playing or loading, stop
-    if (ttsState === 'playing' || ttsState === 'loading') {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      setTtsState('idle');
+  // Text-To-Speech playback logic using OpenAI / WebSpeech fallback
+  const playTTS = useCallback(async (text) => {
+    if (isMuted) return;
+
+    // If already playing the same text, stop it
+    if ((voiceState === 'playing' || voiceState === 'loading') && voiceText === text) {
+      stopTTS();
       return;
     }
 
-    setTtsState('loading');
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    // Stop current play before starting new one
+    stopTTS();
+
+    setVoiceState('loading');
+    setVoiceText(text);
+    setTranscriptText('Diana está pensando...');
+
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
 
     try {
-      // Check if we already have the audio cached (ElevenLabs)
-      if (blobUrlRef.current) {
-        const audio = new Audio(blobUrlRef.current);
-        audioRef.current = audio;
-        audio.onended = () => setTtsState('idle');
-        audio.onerror = () => setTtsState('idle');
-        await audio.play();
-        setTtsState('playing');
-        return;
-      }
-
-      // Try ElevenLabs via API route
       const res = await fetch('/api/diana/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,115 +295,90 @@ function TTSButton({ text, autoPlay = false }) {
         if (contentType && contentType.includes('audio/')) {
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);
+          if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
           blobUrlRef.current = url;
 
           const audio = new Audio(url);
           audioRef.current = audio;
-          audio.onended = () => setTtsState('idle');
+          audio.onended = () => {
+            setVoiceState('idle');
+            setTranscriptText('');
+          };
           audio.onerror = () => {
             console.warn('Audio playback error, falling back to browser TTS');
-            fallbackToBrowserTTS();
+            fallbackToBrowserTTS(text);
           };
           await audio.play();
-          setTtsState('playing');
+          setVoiceState('playing');
+          setTranscriptText(text);
           return;
         }
 
         const data = await res.json();
         if (data.fallback) {
-          fallbackToBrowserTTS(data.cleanText);
+          fallbackToBrowserTTS(data.cleanText || text);
           return;
         }
       }
 
-      fallbackToBrowserTTS();
+      fallbackToBrowserTTS(text);
     } catch (err) {
       if (err.name === 'AbortError') return;
       console.warn('TTS error, using browser fallback:', err);
-      fallbackToBrowserTTS();
+      fallbackToBrowserTTS(text);
     }
-  }, [text, ttsState]);
+  }, [voiceState, voiceText, isMuted]);
 
-  const fallbackToBrowserTTS = useCallback((cleanedText) => {
-    const speechText = cleanedText || cleanTextForSpeech(text);
-    utteranceRef.current = speakWithBrowserTTS(speechText, () => {
-      setTtsState('idle');
-    });
-    setTtsState('playing');
-  }, [text]);
+  const fallbackToBrowserTTS = useCallback((text) => {
+    const speechText = cleanTextForSpeech(text);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(speechText);
+      utterance.lang = 'pt-BR';
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
 
-  // Auto-play on mount if enabled
-  useEffect(() => {
-    if (autoPlay && text && !hasAutoPlayed) {
-      setHasAutoPlayed(true);
-      handlePlay();
+      const voices = window.speechSynthesis.getVoices();
+      const ptBRFemale = voices.find(v =>
+        v.lang.startsWith('pt') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('feminina') || v.name.includes('Microsoft Francisca') || v.name.includes('Google'))
+      );
+      const ptBRAny = voices.find(v => v.lang.startsWith('pt'));
+
+      if (ptBRFemale) utterance.voice = ptBRFemale;
+      else if (ptBRAny) utterance.voice = ptBRAny;
+
+      utterance.onend = () => {
+        setVoiceState('idle');
+        setTranscriptText('');
+      };
+      utterance.onerror = () => {
+        setVoiceState('idle');
+        setTranscriptText('');
+      };
+
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+      setVoiceState('playing');
+      setTranscriptText(text);
+    } else {
+      setVoiceState('idle');
     }
-  }, [autoPlay, text, hasAutoPlayed, handlePlay]);
+  }, []);
 
-  const Icon = ttsState === 'loading' ? Loader
-    : ttsState === 'playing' ? VolumeX
-    : Volume2;
-
-  return (
-    <button
-      className={`tts-btn ${ttsState === 'playing' ? 'tts-btn-playing' : ''} ${ttsState === 'loading' ? 'tts-btn-loading' : ''}`}
-      onClick={handlePlay}
-      title={
-        ttsState === 'playing' ? 'Parar áudio'
-        : ttsState === 'loading' ? 'Gerando áudio...'
-        : 'Ouvir Diana'
-      }
-      disabled={ttsState === 'loading'}
-    >
-      <Icon size={14} className={ttsState === 'loading' ? 'tts-spin' : ''} />
-    </button>
-  );
-}
-
-export default function DianaChat({ messages, streamingMessage, isStreaming, loading, sendMessage, clearChat, suggestions }) {
-  const [input, setInput] = useState('');
-  const [autoTTS, setAutoTTS] = useState(true);
-  const [isListening, setIsListening] = useState(false);
-  const messagesEndRef = useRef(null);
-  const lastMessageIdRef = useRef(null);
-  const recognitionRef = useRef(null);
-
-  // Inicializa o reconhecimento de voz do navegador (Web Speech API)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const rec = new SpeechRecognition();
-        rec.continuous = false; // Para de escutar automaticamente ao pausar a fala
-        rec.interimResults = false;
-        rec.lang = 'pt-BR';
-
-        rec.onstart = () => {
-          setIsListening(true);
-        };
-
-        rec.onresult = (event) => {
-          const transcript = event.results[0][0].transcript;
-          if (transcript) {
-            setInput(prev => {
-              const base = prev.trim();
-              return base ? `${base} ${transcript}` : transcript;
-            });
-          }
-        };
-
-        rec.onerror = (event) => {
-          console.error('Erro no reconhecimento de voz:', event.error);
-          setIsListening(false);
-        };
-
-        rec.onend = () => {
-          setIsListening(false);
-        };
-
-        recognitionRef.current = rec;
-      }
+  const stopTTS = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setVoiceState('idle');
+    setTranscriptText('');
   }, []);
 
   const toggleListening = () => {
@@ -355,6 +398,18 @@ export default function DianaChat({ messages, streamingMessage, isStreaming, loa
     }
   };
 
+  const toggleMute = () => {
+    if (!isMuted) {
+      stopTTS();
+    }
+    setIsMuted(!isMuted);
+  };
+
+  const toggleTTSVolume = () => {
+    // Basic cycle or mute feedback
+    alert('Volume configurado no máximo.');
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -363,19 +418,19 @@ export default function DianaChat({ messages, streamingMessage, isStreaming, loa
     scrollToBottom();
   }, [messages, loading, streamingMessage]);
 
-  // Track the latest Diana message for auto-play
+  // Track the latest assistant message to auto-vocalize it
   const latestDianaMsg = useMemo(() => {
     const dianaMessages = messages.filter(m => m.papel === 'assistant' && m.id !== 'welcome');
     return dianaMessages[dianaMessages.length - 1] || null;
   }, [messages]);
 
-  const isNewMessage = latestDianaMsg && latestDianaMsg.id !== lastMessageIdRef.current;
-
+  // Auto-play the newest incoming message only
   useEffect(() => {
-    if (latestDianaMsg) {
-      lastMessageIdRef.current = latestDianaMsg.id;
+    if (autoTTS && latestDianaMsg && latestDianaMsg.id !== lastPlayedMessageIdRef.current) {
+      lastPlayedMessageIdRef.current = latestDianaMsg.id;
+      playTTS(latestDianaMsg.conteudo);
     }
-  }, [latestDianaMsg]);
+  }, [autoTTS, latestDianaMsg, playTTS]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -395,8 +450,10 @@ export default function DianaChat({ messages, streamingMessage, isStreaming, loa
     ? 'Pergunte qualquer coisa sobre sua padaria...'
     : 'Continue a conversa com Diana...';
 
+  const voicePanelActive = isListening || voiceState === 'playing' || voiceState === 'loading';
+
   return (
-    <div className="chat-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '600px' }}>
+    <div className="chat-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '560px', position: 'relative' }}>
       {/* Header */}
       <div
         style={{
@@ -469,8 +526,9 @@ export default function DianaChat({ messages, streamingMessage, isStreaming, loa
               {/* TTS Button for Diana messages */}
               {msg.papel === 'assistant' && msg.id !== 'welcome' && msg.conteudo && (
                 <TTSButton
-                  text={msg.conteudo}
-                  autoPlay={autoTTS && isNewMessage && msg.id === latestDianaMsg?.id}
+                  isPlaying={voiceState === 'playing' && voiceText === msg.conteudo}
+                  isLoading={voiceState === 'loading' && voiceText === msg.conteudo}
+                  onClick={() => playTTS(msg.conteudo)}
                 />
               )}
             </div>
@@ -549,6 +607,105 @@ export default function DianaChat({ messages, streamingMessage, isStreaming, loa
           <Send size={16} />
         </button>
       </form>
+
+      {/* Futuristic Voice HUD Overlay panel (from reference image) */}
+      {voicePanelActive && (
+        <div className="diana-voice-overlay animate-fade-in">
+          {/* Header */}
+          <div className="diana-voice-header">
+            <div className="diana-voice-header-title">
+              <Bot size={15} />
+              <span>D_IA_na Voz</span>
+            </div>
+            <button
+              type="button"
+              className="diana-voice-close-btn"
+              onClick={isListening ? toggleListening : stopTTS}
+              title="Fechar painel de voz"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Main Visual HUD */}
+          <div className="diana-voice-main">
+            {/* Left controls pane */}
+            <div className="diana-voice-side">
+              <button
+                type="button"
+                className={`diana-voice-side-btn ${isMuted ? 'muted' : ''}`}
+                onClick={toggleMute}
+                title={isMuted ? 'Ativar Som' : 'Mutar Som'}
+              >
+                {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                <span>{isMuted ? 'MUTADO' : 'MUTAR'}</span>
+              </button>
+              <button
+                type="button"
+                className="diana-voice-side-btn"
+                onClick={toggleTTSVolume}
+                title="Volume"
+              >
+                <Volume2 size={18} />
+                <span>VOLUME</span>
+              </button>
+              <button
+                type="button"
+                className={`diana-voice-side-btn ${isListening ? 'active' : ''}`}
+                onClick={toggleListening}
+                title="Microfone"
+              >
+                <Mic size={18} />
+                <span>INPUT</span>
+              </button>
+            </div>
+
+            {/* Glowing circle rings and waveform */}
+            <div className="diana-voice-circle-wrapper">
+              <div className={`diana-voice-circle-outer ${isListening || voiceState === 'playing' ? 'pulsing' : ''}`}>
+                <div className="diana-voice-circle-ring"></div>
+                <div className="diana-voice-circle-inner">
+                  <div className="diana-voice-waveform">
+                    <span className="wave-bar bar-1"></span>
+                    <span className="wave-bar bar-2"></span>
+                    <span className="wave-bar bar-3"></span>
+                    <span className="wave-bar bar-4"></span>
+                    <span className="wave-bar bar-5"></span>
+                    <span className="wave-bar bar-6"></span>
+                    <span className="wave-bar bar-7"></span>
+                    <span className="wave-bar bar-8"></span>
+                    <span className="wave-bar bar-9"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right controls pane */}
+            <div className="diana-voice-side">
+              <button type="button" className="diana-voice-side-btn active" style={{ cursor: 'default' }}>
+                <Bot size={18} />
+                <span>INPUT</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Status Badge */}
+          <div className={`diana-voice-status-badge ${isListening ? 'listening' : voiceState === 'playing' ? 'talking' : ''}`}>
+            STATUS: {isListening ? 'LISTENING' : voiceState === 'playing' ? 'TALKING' : voiceState === 'loading' ? 'LOADING' : 'IDLE'}
+          </div>
+
+          {/* Transcription / Subtitles area */}
+          <div className="diana-voice-transcript">
+            {isListening ? (
+              <p>Ouvindo: <strong>{transcriptText || 'Pode falar...'}</strong></p>
+            ) : voiceState === 'playing' || voiceState === 'loading' ? (
+              <p>Diana: <strong>{transcriptText}</strong></p>
+            ) : (
+              <p>Iniciando canal de voz...</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
