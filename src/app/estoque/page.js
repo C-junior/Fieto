@@ -3,9 +3,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import EstoqueTable from '@/components/EstoqueTable';
 import EstoqueModal from '@/components/EstoqueModal';
+import NotaFiscalModal from '@/components/NotaFiscalModal';
+import ToastProvider from '@/components/Toast';
 import MetricCard from '@/components/MetricCard';
 import { useEstoque } from '@/hooks/useEstoque';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, FileText } from 'lucide-react';
 
 export default function EstoquePage() {
   const {
@@ -24,6 +26,7 @@ export default function EstoquePage() {
   const [filterStatus, setFilterStatus] = useState('all'); // all, expired, critical, warning, safe
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [nfModalOpen, setNfModalOpen] = useState(false);
 
   useEffect(() => {
     fetchItems();
@@ -78,13 +81,22 @@ export default function EstoquePage() {
             Controle de inventário de matéria-prima e monitoramento ativo de vencimentos.
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={handleCreateClick}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <Plus size={16} /> Entrada de Insumo
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="btn btn-primary"
+            onClick={() => setNfModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <FileText size={16} /> Importar Nota Fiscal
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleCreateClick}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Plus size={16} /> Entrada de Insumo
+          </button>
+        </div>
       </div>
 
       {/* Resumos rápidos */}
@@ -186,6 +198,15 @@ export default function EstoquePage() {
         onSave={handleSaveItem}
         activeItem={editingItem}
       />
+
+      {/* Modal Nota Fiscal (Demo) */}
+      <NotaFiscalModal
+        isOpen={nfModalOpen}
+        onClose={() => setNfModalOpen(false)}
+      />
+
+      {/* Toast Provider */}
+      <ToastProvider />
     </div>
   );
 }
