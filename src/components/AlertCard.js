@@ -88,7 +88,7 @@ export default function AlertCard({ alert, onAccept, onDismiss }) {
                   onClick={() => onAccept(alert)}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  🤖 Resolver com Diana
+                  🤖 Resolver com D<span className="diana">IA</span>NA
                 </button>
               )}
               {onDismiss && (

@@ -51,21 +51,21 @@ function renderRichContent(text) {
  */
 function getContextualLoading(messages) {
   const lastUserMsg = [...messages].reverse().find(m => m.papel === 'user');
-  if (!lastUserMsg) return 'Diana está pensando...';
+  if (!lastUserMsg) return 'DIANA está pensando...';
 
   const text = lastUserMsg.conteudo.toLowerCase();
 
   if (text.includes('estoque') || text.includes('validade') || text.includes('venc')) {
-    return 'Diana está verificando o estoque...';
+    return 'DIANA está verificando o estoque...';
   }
   if (text.includes('produção') || text.includes('produzir') || text.includes('demanda') || text.includes('previsão')) {
-    return 'Diana está calculando previsões...';
+    return 'DIANA está calculando previsões...';
   }
   if (text.includes('receita') || text.includes('reaproveit') || text.includes('reaproveitar')) {
-    return 'Diana está buscando receitas...';
+    return 'DIANA está buscando receitas...';
   }
 
-  return 'Diana está pensando...';
+  return 'DIANA está pensando...';
 }
 
 function formatTimestamp(isoString) {
@@ -149,7 +149,7 @@ function TTSButton({ isPlaying, isLoading, onClick }) {
         e.stopPropagation();
         onClick();
       }}
-      title={isPlaying ? 'Parar voz' : isLoading ? 'Carregando voz...' : 'Ouvir Diana'}
+      title={isPlaying ? 'Parar voz' : isLoading ? 'Carregando voz...' : 'Ouvir DIANA'}
       disabled={isLoading}
     >
       <Icon size={14} className={isLoading ? 'tts-spin' : ''} />
@@ -174,6 +174,7 @@ export default function DianaChat({
   const [voiceState, setVoiceState] = useState('idle'); // idle | loading | playing
   const [voiceText, setVoiceText] = useState('');
   const [transcriptText, setTranscriptText] = useState('');
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -195,7 +196,7 @@ export default function DianaChat({
 
         rec.onstart = () => {
           setIsListening(true);
-          setTranscriptText('Diana está ouvindo você...');
+          setTranscriptText('DIANA está ouvindo você...');
           // Stop any Diana speaking when user starts talking
           stopTTS();
         };
@@ -276,7 +277,7 @@ export default function DianaChat({
 
     setVoiceState('loading');
     setVoiceText(text);
-    setTranscriptText('Diana está pensando...');
+    setTranscriptText('DIANA está pensando...');
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
@@ -392,9 +393,18 @@ export default function DianaChat({
     } else {
       try {
         recognitionRef.current.start();
+        setIsVoiceMode(true);
       } catch (err) {
         console.error('Erro ao iniciar reconhecimento:', err);
       }
+    }
+  };
+
+  const handleCloseVoice = () => {
+    setIsVoiceMode(false);
+    stopTTS();
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
     }
   };
 
@@ -437,6 +447,7 @@ export default function DianaChat({
     if (!input.trim() || loading || isStreaming) return;
     sendMessage(input);
     setInput('');
+    setIsVoiceMode(false);
   };
 
   const handleQuickQuestion = (question) => {
@@ -448,9 +459,9 @@ export default function DianaChat({
 
   const placeholder = messages.length <= 1
     ? 'Pergunte qualquer coisa sobre sua padaria...'
-    : 'Continue a conversa com Diana...';
+    : 'Continue a conversa com DIANA...';
 
-  const voicePanelActive = isListening || voiceState === 'playing' || voiceState === 'loading';
+  const voicePanelActive = isVoiceMode || isListening || voiceState === 'playing' || voiceState === 'loading';
 
   return (
     <div className="chat-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '560px', position: 'relative' }}>
@@ -470,10 +481,10 @@ export default function DianaChat({
             <Bot size={16} />
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Conversar com Diana</div>
+            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Conversar com D<span className="diana">IA</span>NA</div>
             <div style={{ fontSize: '0.75rem', color: isStreaming ? 'var(--accent-cyan)' : 'var(--accent-green)', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isStreaming ? 'var(--accent-cyan)' : 'var(--accent-green)', display: 'inline-block', animation: isStreaming ? 'cursor-blink 1s step-end infinite' : 'none' }}></span>
-              {isStreaming ? 'Diana está respondendo...' : 'Online e Monitorando'}
+              {isStreaming ? <span>D<span className="diana">IA</span>NA está respondendo...</span> : 'Online e Monitorando'}
             </div>
           </div>
         </div>
@@ -482,7 +493,7 @@ export default function DianaChat({
           <button
             className={`tts-toggle-btn ${autoTTS ? 'tts-toggle-active' : ''}`}
             onClick={() => setAutoTTS(!autoTTS)}
-            title={autoTTS ? 'Desativar voz automática' : 'Ativar voz automática — Diana fala suas respostas'}
+            title={autoTTS ? 'Desativar voz automática' : 'Ativar voz automática — DIANA fala suas respostas'}
           >
             {autoTTS ? <Volume2 size={15} /> : <VolumeX size={15} />}
           </button>
@@ -615,12 +626,12 @@ export default function DianaChat({
           <div className="diana-voice-header">
             <div className="diana-voice-header-title">
               <Bot size={15} />
-              <span>D_IA_na Voz</span>
+              <span>D<span className="diana">IA</span>NA Voz</span>
             </div>
             <button
               type="button"
               className="diana-voice-close-btn"
-              onClick={isListening ? toggleListening : stopTTS}
+              onClick={handleCloseVoice}
               title="Fechar painel de voz"
             >
               <X size={16} />
@@ -662,7 +673,7 @@ export default function DianaChat({
 
             {/* Glowing circle rings and waveform */}
             <div className="diana-voice-circle-wrapper">
-              <div className={`diana-voice-circle-outer ${isListening || voiceState === 'playing' ? 'pulsing' : ''}`}>
+              <div className={`diana-voice-circle-outer ${isListening || voiceState === 'playing' || voiceState === 'loading' || loading || isStreaming ? 'pulsing' : ''}`}>
                 <div className="diana-voice-circle-ring"></div>
                 <div className="diana-voice-circle-inner">
                   <div className="diana-voice-waveform">
@@ -690,18 +701,20 @@ export default function DianaChat({
           </div>
 
           {/* Status Badge */}
-          <div className={`diana-voice-status-badge ${isListening ? 'listening' : voiceState === 'playing' ? 'talking' : ''}`}>
-            STATUS: {isListening ? 'LISTENING' : voiceState === 'playing' ? 'TALKING' : voiceState === 'loading' ? 'LOADING' : 'IDLE'}
+          <div className={`diana-voice-status-badge ${isListening ? 'listening' : (loading || isStreaming || voiceState === 'loading') ? 'loading' : voiceState === 'playing' ? 'talking' : ''}`}>
+            STATUS: {isListening ? 'LISTENING' : (loading || isStreaming || voiceState === 'loading') ? 'LOADING' : voiceState === 'playing' ? 'TALKING' : 'IDLE'}
           </div>
 
           {/* Transcription / Subtitles area */}
           <div className="diana-voice-transcript">
             {isListening ? (
               <p>Ouvindo: <strong>{transcriptText || 'Pode falar...'}</strong></p>
+            ) : (loading || isStreaming) ? (
+              <p>D<span className="diana">IA</span>NA: <strong>{contextualLoading}</strong></p>
             ) : voiceState === 'playing' || voiceState === 'loading' ? (
-              <p>Diana: <strong>{transcriptText}</strong></p>
+              <p>D<span className="diana">IA</span>NA: <strong>{transcriptText}</strong></p>
             ) : (
-              <p>Iniciando canal de voz...</p>
+              <p>Canal de voz ativo. Clique em INPUT para falar.</p>
             )}
           </div>
         </div>

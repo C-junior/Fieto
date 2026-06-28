@@ -116,7 +116,7 @@ export default function PrevisaoPage() {
       {metrics && (
         <div className="grid-3" style={{ gap: '20px' }}>
           <MetricCard
-            title="Acurácia Média da Diana"
+            title={<span>Acurácia Média da D<span className="diana">IA</span>NA</span>}
             value={`${metrics.acuracia_media || '92.5'}%`}
             label={`Erro percentual médio de ${metrics.mape || '7.5'}%`}
             icon="Bot"

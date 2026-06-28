@@ -207,7 +207,21 @@ export function useDiana() {
       const res = await fetch(`/api/diana/alerts?empresa_id=${EMPRESA_ID}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao buscar alertas');
-      setAlerts(data.alerts || []);
+      
+      let simulated = [];
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('diana-simulated-alerts');
+          if (stored) {
+            simulated = JSON.parse(stored);
+          }
+        } catch (e) {
+          console.error('Erro ao ler alertas simulados:', e);
+        }
+      }
+      
+      const activeSimulated = simulated.filter(a => !a.dismissed);
+      setAlerts([...activeSimulated, ...(data.alerts || [])]);
     } catch (err) {
       console.error('Erro ao buscar alertas:', err);
     } finally {
@@ -246,15 +260,43 @@ export function useDiana() {
       'SUPERPRODUCAO': `Diana, reduza a producao sugerida de ${alert.item_name} como recomendado.`,
       'SUPERPRODUÇÃO': `Diana, reduza a producao sugerida de ${alert.item_name} como recomendado.`,
       REAPROVEITAMENTO: `Diana, aceito a sugestao. Me de a receita detalhada para usar o item ${alert.item_name}.`,
+      SENSOR: `Diana, o sensor ${alert.item_name || alert.title} disparou um alerta. Como proceder?`,
     };
 
-    const promptMessage = prompts[alert.type] || `Diana, aceito o alerta sobre ${alert.item_name}.`;
+    const promptMessage = prompts[alert.type] || `Diana, aceito o alerta sobre ${alert.item_name || alert.title}.`;
     setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, dismissed: true } : a));
+
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('diana-simulated-alerts');
+        if (stored) {
+          const simulated = JSON.parse(stored);
+          const updated = simulated.map(a => a.id === alert.id ? { ...a, dismissed: true } : a);
+          localStorage.setItem('diana-simulated-alerts', JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     await sendMessage(promptMessage);
   }, [sendMessage]);
 
   const onDismissAlert = useCallback((alert) => {
     setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, dismissed: true } : a));
+
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('diana-simulated-alerts');
+        if (stored) {
+          const simulated = JSON.parse(stored);
+          const updated = simulated.map(a => a.id === alert.id ? { ...a, dismissed: true } : a);
+          localStorage.setItem('diana-simulated-alerts', JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
   }, []);
 
   return {

@@ -87,7 +87,7 @@ function AlertsPanel({ alerts, alertsLoading, onAcceptAlert, onDismissAlert }) {
         {alertsLoading ? (
           <div className="diana-empty-state">
             <div className="spinner"></div>
-            <span>Diana esta analisando estoque e producao...</span>
+            <span>DIANA esta analisando estoque e producao...</span>
           </div>
         ) : activeAlerts.length === 0 ? (
           <div className="diana-empty-state">
@@ -138,7 +138,7 @@ export default function DianaHub({
       <aside className="diana-ops-panel">
         <div className="diana-ops-topline">
           <div>
-            <span className="diana-eyebrow">D_IA_na Core</span>
+            <span className="diana-eyebrow">D<span className="diana">IA</span>NA Core</span>
             <h3>Central operacional</h3>
           </div>
           <div className="diana-risk-chip">

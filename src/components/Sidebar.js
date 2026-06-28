@@ -10,6 +10,7 @@ import {
   Sun,
   Moon,
   User,
+  Activity,
 } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -33,6 +34,11 @@ const navItems = [
     label: 'Previsão',
     href: '/previsao',
     icon: TrendingUp,
+  },
+  {
+    label: 'Sensores',
+    href: '/sensores',
+    icon: Activity,
   },
 ];
 

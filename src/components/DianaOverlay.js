@@ -5,15 +5,7 @@ import { Bot, MessageCircle, Sparkles, X } from 'lucide-react';
 import DianaHub from './DianaHub';
 import { useDiana } from '@/hooks/useDiana';
 
-function DianaReactor({ active }) {
-  return (
-    <div className={`diana-reactor ${active ? 'diana-reactor-active' : ''}`} aria-hidden="true">
-      <span className="diana-reactor-ring"></span>
-      <span className="diana-reactor-core"></span>
-      <span className="diana-reactor-scan"></span>
-    </div>
-  );
-}
+
 
 export default function DianaOverlay() {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,6 +42,14 @@ export default function DianaOverlay() {
   }, [fetchAlerts, fetchBriefing]);
 
   useEffect(() => {
+    const handleUpdate = () => {
+      fetchAlerts();
+    };
+    window.addEventListener('diana-alerts-updated', handleUpdate);
+    return () => window.removeEventListener('diana-alerts-updated', handleUpdate);
+  }, [fetchAlerts]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
     fetchAlerts();
@@ -73,17 +73,16 @@ export default function DianaOverlay() {
         type="button"
         className={`diana-launcher ${isOpen ? 'diana-launcher-open' : ''} ${isVoiceActive ? 'diana-launcher-speaking' : ''}`}
         onClick={() => setIsOpen((open) => !open)}
-        aria-label={isOpen ? 'Fechar D_IA_na' : 'Abrir D_IA_na'}
+        aria-label={isOpen ? 'Fechar DIANA' : 'Abrir DIANA'}
         aria-expanded={isOpen}
       >
         <span className="diana-launcher-icon">
           {isOpen ? <X size={22} /> : <Bot size={24} />}
         </span>
         <span className="diana-launcher-copy">
-          <strong>D_IA_na</strong>
+          <strong>D<span className="diana">IA</span>NA</strong>
           <small>{isStreaming ? 'respondendo' : isVoiceActive ? 'falando' : 'assistente'}</small>
         </span>
-        <DianaReactor active={isVoiceActive || isStreaming} />
         {activeAlerts.length > 0 && (
           <span className="diana-launcher-badge">{activeAlerts.length}</span>
         )}
@@ -95,13 +94,13 @@ export default function DianaOverlay() {
             type="button"
             className="diana-overlay-backdrop"
             onClick={() => setIsOpen(false)}
-            aria-label="Fechar D_IA_na"
+            aria-label="Fechar DIANA"
           />
           <section
             className="diana-overlay-panel animate-fade-in"
             role="dialog"
             aria-modal="true"
-            aria-label="D_IA_na"
+            aria-label="DIANA"
           >
             <header className="diana-overlay-header">
               <div className="diana-overlay-title">
@@ -109,17 +108,16 @@ export default function DianaOverlay() {
                   <Sparkles size={19} />
                 </div>
                 <div>
-                  <h2>D_IA_na</h2>
+                  <h2>D<span className="diana">IA</span>NA</h2>
                   <p>{isStreaming ? 'Preparando a resposta' : isVoiceActive ? 'Falando com voce' : 'Pronta para decidir com voce'}</p>
                 </div>
               </div>
               <div className="diana-overlay-actions">
-                <DianaReactor active={isVoiceActive || isStreaming} />
                 <button
                   type="button"
                   className="btn btn-ghost btn-icon"
                   onClick={() => setIsOpen(false)}
-                  aria-label="Fechar D_IA_na"
+                  aria-label="Fechar DIANA"
                   title="Fechar"
                 >
                   <X size={18} />
@@ -151,7 +149,7 @@ export default function DianaOverlay() {
       {!isOpen && isStreaming && (
         <div className="diana-mini-status">
           <MessageCircle size={15} />
-          Diana esta respondendo...
+          DIANA esta respondendo...
         </div>
       )}
     </>
