@@ -1641,6 +1641,112 @@ ul, ol {
   }
 }
 
+/* ── TTS (Text-to-Speech) Button ────────────────────────────── */
+.tts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 212, 255, 0.06);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-bubble-diana {
+  position: relative;
+}
+
+.chat-bubble-diana:hover .tts-btn {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.tts-btn:hover {
+  color: var(--accent-cyan);
+  background: rgba(0, 212, 255, 0.12);
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+  transform: scale(1.08);
+}
+
+.tts-btn-playing {
+  opacity: 1 !important;
+  pointer-events: all !important;
+  color: var(--accent-cyan);
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.4);
+  animation: tts-pulse 1.5s ease-in-out infinite;
+}
+
+.tts-btn-loading {
+  opacity: 1 !important;
+  pointer-events: none !important;
+  color: var(--accent-cyan);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.tts-spin {
+  animation: tts-spinner 0.8s linear infinite;
+}
+
+@keyframes tts-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes tts-spinner {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Auto-TTS toggle button in chat header */
+.tts-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+
+.tts-toggle-btn:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.tts-toggle-active {
+  color: var(--accent-cyan) !important;
+  background: rgba(0, 212, 255, 0.08) !important;
+  border-color: rgba(0, 212, 255, 0.25) !important;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.1);
+}
+
+.tts-toggle-active:hover {
+  background: rgba(0, 212, 255, 0.14) !important;
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.2);
+}
+
 @media (min-width: 769px) {
   .mobile-menu-btn {
     display: none;
