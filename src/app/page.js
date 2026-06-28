@@ -81,7 +81,10 @@ export default function Home() {
   const percentualPerda = producaoStats.percentualPerda || '0.0';
   
   // Use briefing economia when available, fallback to calculated value
-  const economiaEstimada = briefing?.economia_mes ?? valorPerdido * 0.45;
+  const economiaMesObj = briefing?.economia_mes;
+  const economiaEstimada = economiaMesObj?.economia_estimada_mensal
+    ? parseFloat(economiaMesObj.economia_estimada_mensal.replace(/[^\d,]/g, '').replace(',', '.'))
+    : valorPerdido * 0.45;
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>

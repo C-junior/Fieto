@@ -55,7 +55,7 @@ function BriefingCard({ briefing, briefingLoading }) {
         <div className="briefing-stat" style={{ marginTop: '8px', background: 'rgba(0, 212, 255, 0.06)', borderLeft: '2px solid var(--accent-cyan)' }}>
           <span>🍞 {briefing.sugestao_producao[0].produto}</span>
           <span className="briefing-stat-value">
-            {briefing.sugestao_producao[0].qtd_sugerida} un
+            {briefing.sugestao_producao[0].quantidade_sugerida} un
           </span>
         </div>
       )}
