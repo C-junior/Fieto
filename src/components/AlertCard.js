@@ -1,18 +1,19 @@
 'use client';
 
-import { AlertTriangle, Clock, ChefHat, TrendingUp, Check, X } from 'lucide-react';
+import { AlertTriangle, Clock, ChefHat, TrendingUp, Sparkles, Check, X } from 'lucide-react';
 
 const ICONS = {
-  expiry: Clock,
-  overproduction: TrendingUp,
-  reuse: ChefHat,
+  VALIDADE: Clock,
+  SUPERPRODUÇÃO: TrendingUp,
+  REAPROVEITAMENTO: ChefHat,
+  OPORTUNIDADE: Sparkles,
   default: AlertTriangle,
 };
 
 const SEVERITY_CLASS = {
-  critical: 'alert-card-critical',
-  warning: 'alert-card-warning',
-  info: 'alert-card-info',
+  CRITICAL: 'alert-card-critical',
+  WARNING: 'alert-card-warning',
+  INFO: 'alert-card-info',
 };
 
 export default function AlertCard({ alert, onAccept, onDismiss }) {
@@ -20,17 +21,47 @@ export default function AlertCard({ alert, onAccept, onDismiss }) {
   const severityClass = SEVERITY_CLASS[alert.severity] || 'alert-card-info';
 
   return (
-    <div className={`alert-card ${severityClass} animate-fade-in`}>
+    <div className={`alert-card ${severityClass} animate-slide-in`}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
         <div
-          className={`metric-icon metric-icon-${alert.severity === 'critical' ? 'red' : alert.severity === 'warning' ? 'yellow' : 'cyan'}`}
+          className={`metric-icon metric-icon-${alert.severity === 'CRITICAL' ? 'red' : alert.severity === 'WARNING' ? 'yellow' : 'cyan'}`}
           style={{ width: '36px', height: '36px', minWidth: '36px', borderRadius: '10px' }}
         >
           <Icon size={18} />
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="alert-title">{alert.title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="alert-title">{alert.title}</div>
+            {alert.priority_score !== undefined && alert.priority_score !== null && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: '22px',
+                  height: '22px',
+                  padding: '0 6px',
+                  borderRadius: '11px',
+                  background: alert.severity === 'CRITICAL'
+                    ? 'rgba(239, 68, 68, 0.15)'
+                    : alert.severity === 'WARNING'
+                    ? 'rgba(245, 158, 11, 0.15)'
+                    : 'rgba(0, 212, 255, 0.15)',
+                  color: alert.severity === 'CRITICAL'
+                    ? 'var(--accent-red)'
+                    : alert.severity === 'WARNING'
+                    ? 'var(--accent-yellow)'
+                    : 'var(--accent-cyan)',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                {alert.priority_score}
+              </span>
+            )}
+          </div>
           <div className="alert-message" style={{ marginTop: '4px' }}>
             {alert.message}
           </div>
@@ -53,11 +84,11 @@ export default function AlertCard({ alert, onAccept, onDismiss }) {
             <div className="alert-actions" style={{ marginTop: '12px' }}>
               {onAccept && (
                 <button
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-primary btn-sm btn-resolve"
                   onClick={() => onAccept(alert)}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  <Check size={14} /> Aceitar
+                  🤖 Resolver com Diana
                 </button>
               )}
               {onDismiss && (
@@ -66,7 +97,7 @@ export default function AlertCard({ alert, onAccept, onDismiss }) {
                   onClick={() => onDismiss(alert)}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  <X size={14} /> Ignorar
+                  <X size={14} /> Dispensar
                 </button>
               )}
             </div>

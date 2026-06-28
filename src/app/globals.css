@@ -1286,6 +1286,260 @@ ul, ol {
   height: 22px;
 }
 
+/* ── Diana 2.0 Styles ──────────────────────────────────────── */
+
+/* Typing cursor animation */
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--accent-cyan);
+  margin-left: 2px;
+  animation: cursor-blink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Streaming message bubble */
+.chat-bubble-streaming {
+  border-color: rgba(0, 212, 255, 0.2);
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.05);
+}
+
+/* Diana message with left accent */
+.chat-bubble-diana {
+  border-left: 3px solid rgba(0, 212, 255, 0.3);
+}
+
+/* Suggestion chips */
+.suggestion-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 20px 12px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  color: var(--accent-cyan);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+
+.suggestion-chip:hover {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 212, 255, 0.15);
+}
+
+/* Briefing card */
+.briefing-card {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.briefing-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.briefing-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.15);
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.briefing-stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+
+.briefing-stat-critical {
+  color: var(--accent-red);
+}
+
+.briefing-stat-warning {
+  color: var(--accent-yellow);
+}
+
+/* Action buttons inside chat messages */
+.diana-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  margin-top: 10px;
+  margin-right: 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: var(--accent-cyan);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.diana-action-btn:hover {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: rgba(0, 212, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Rich text sections in Diana messages */
+.diana-section {
+  padding: 4px 0;
+  line-height: 1.6;
+}
+
+.diana-section-alert {
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.06);
+  border-left: 2px solid var(--accent-red);
+}
+
+.diana-section-suggestion {
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 212, 255, 0.06);
+  border-left: 2px solid var(--accent-cyan);
+}
+
+.diana-section-action {
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.06);
+  border-left: 2px solid var(--accent-green);
+}
+
+.diana-section-data {
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: var(--radius-sm);
+  background: rgba(139, 92, 246, 0.06);
+  border-left: 2px solid var(--accent-purple);
+}
+
+/* Mono values in messages */
+.diana-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+
+/* Hub layout adjustments */
+.diana-hub-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+/* Contextual loading messages */
+.diana-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.diana-thinking-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.diana-thinking-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  animation: typing-bounce 1.4s infinite ease-in-out both;
+}
+
+.diana-thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+.diana-thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+.diana-thinking-dots span:nth-child(3) { animation-delay: 0s; }
+
+@keyframes typing-bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+/* Alert card resolve button */
+.btn-resolve {
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: var(--accent-cyan);
+}
+
+.btn-resolve:hover:not(:disabled) {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: rgba(0, 212, 255, 0.4);
+}
+
+/* Message timestamp on hover */
+.chat-bubble-wrapper {
+  position: relative;
+}
+
+.chat-bubble-wrapper .chat-timestamp {
+  position: absolute;
+  bottom: -18px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+}
+
+.chat-bubble-wrapper:hover .chat-timestamp {
+  opacity: 1;
+}
+
+.chat-bubble-wrapper .chat-timestamp-user {
+  right: 0;
+}
+
+.chat-bubble-wrapper .chat-timestamp-diana {
+  left: 0;
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 1200px) {
   .grid-4 {
@@ -1340,7 +1594,8 @@ ul, ol {
 
   .grid-2,
   .grid-3,
-  .grid-4 {
+  .grid-4,
+  .diana-hub-grid {
     grid-template-columns: 1fr;
   }
 

@@ -10,12 +10,18 @@ import { useProducao } from '@/hooks/useProducao';
 export default function Home() {
   const {
     messages,
+    streamingMessage,
+    isStreaming,
     alerts,
     loading: dianaLoading,
     alertsLoading,
     sendMessage,
     fetchAlerts,
+    fetchBriefing,
     clearChat,
+    briefing,
+    briefingLoading,
+    suggestions,
   } = useDiana();
 
   const {
@@ -38,7 +44,8 @@ export default function Home() {
   useEffect(() => {
     fetchEstoque();
     fetchProducao();
-  }, [fetchEstoque, fetchProducao]);
+    fetchBriefing();
+  }, [fetchEstoque, fetchProducao, fetchBriefing]);
 
   // Sincronizar alertas da Diana
   useEffect(() => {
@@ -73,8 +80,8 @@ export default function Home() {
   const valorPerdido = totalPerdaKG * 8.5; // Custo estimado ponderado por kg de produto final
   const percentualPerda = producaoStats.percentualPerda || '0.0';
   
-  // Economia mensal calculada na previsão da Diana
-  const economiaEstimada = valorPerdido * 0.45; // Diana reduz em média 45% das perdas com IA
+  // Use briefing economia when available, fallback to calculated value
+  const economiaEstimada = briefing?.economia_mes ?? valorPerdido * 0.45;
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -111,8 +118,16 @@ export default function Home() {
         />
         <MetricCard
           title="Validades Críticas"
-          value={`${estoqueStats.critical + estoqueStats.expired} itens`}
-          label={`${estoqueStats.expired} vencido(s) e ${estoqueStats.critical} em risco`}
+          value={`${
+            briefing?.resumo_estoque
+              ? briefing.resumo_estoque.criticos + briefing.resumo_estoque.vencidos
+              : estoqueStats.critical + estoqueStats.expired
+          } itens`}
+          label={`${
+            briefing?.resumo_estoque
+              ? `${briefing.resumo_estoque.vencidos} vencido(s) e ${briefing.resumo_estoque.criticos} em risco`
+              : `${estoqueStats.expired} vencido(s) e ${estoqueStats.critical} em risco`
+          }`}
           icon="AlertTriangle"
           color="orange"
         />
@@ -128,6 +143,8 @@ export default function Home() {
       {/* Diana Hub: Feed de Alertas + Chat */}
       <DianaHub
         messages={messages}
+        streamingMessage={streamingMessage}
+        isStreaming={isStreaming}
         alerts={localAlerts}
         loading={dianaLoading}
         alertsLoading={alertsLoading || estoqueLoading || producaoLoading}
@@ -136,6 +153,9 @@ export default function Home() {
         clearChat={clearChat}
         onAcceptAlert={handleAcceptAlert}
         onDismissAlert={handleDismissAlert}
+        briefing={briefing}
+        briefingLoading={briefingLoading}
+        suggestions={suggestions}
       />
     </div>
   );
